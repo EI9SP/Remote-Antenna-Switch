@@ -3,8 +3,8 @@
 //                   ESP32 controller for Antenna Switch by EI9SP                     //
 //------------------------------------------------------------------------------------//
 //   Author:        Robert    EI9ILB@protom.me                                        //
-//   Version:       0.1.1 POC                                                         //
-//   Date:          17-04-2023                                                        //
+//   Version:       0.2.0                                                             //
+//   Date:          23-04-2023                                                        //
 //------------------------------------------------------------------------------------//
 //  Controller functions:                                                             //
 //    - comunnicating with switch ober RS485                                          //
@@ -15,7 +15,7 @@
 //    - MQTT proxy [TBI]                                                              //
 //------------------------------------------------------------------------------------//
 // Commands supported by switch:                                                      //
-//  a?                  Podaj numer anteny                                            //
+//  ax                  Podaj numer anteny                                            //
 //  a0                  wszytkie wylaczone                                            //
 //  a1                  Antena 1                                                      //
 //  a2                  Antena 2                                                      //
@@ -29,13 +29,33 @@
 //  load                Aktualizuj oprogramowanie                                     //
 //  ?                   Wyswielt liste komend                                         //
 //------------------------------------------------------------------------------------//
-// Bugs:                                                                              //
+// Changelog:                                                                         //
+//  0.1.1    17-04-2023                                                               //
 //    - fixed WEB up and down button                                                  //
 //    - added debug function                                                          //
+//  0.2.0    23-04-2023                                                               //
+//    - Added AP mode for setting SSID and Password to EPROM                          //
+//    - added N1MM page template                                                      //
+//    - updated sending mechanism to switch                                           //
+//    - reorganised code requires new way loading process:                            //
+//    https://randomnerdtutorials.com/install-esp32-filesystem-uploader-arduino-ide/  //
+//                                                                                    //
+//------------------------------------------------------------------------------------//
+// Bugs:                                                                              //
+//                                                                                    //
+//------------------------------------------------------------------------------------//
+// TODO:                                                                              //
+//     - organize code in modules                                                     //
+//     - implement MQTT (subscriber and publisher)                                    //
+//     - optimize MVC Views                                                           //
+//     - add bitmap splash screen                                                     //
+//     - block switch if N1MM is transmitting                                         //
+//     - add N1MM UDP support for managing switch directly from logger                //
 //                                                                                    //
 ////////////////////////////////////////////////////////////////////////////////////////
 
- #define DEBUG
+// #define PAWEL
+#define DEBUG
 #ifdef DEBUG
 #define DEBUG_PRINT(x)               \
   Serial.print(millis());            \
@@ -61,14 +81,20 @@
 #include "BluetoothSerial.h"  //BT
 #include "WiFi.h"             //Wifi
 #include <HardwareSerial.h>   //UART
+#include "SPIFFS.h"
 
 // HardwareSerial SerialPort(2); // Initialize hardware UART
-
-#define SCREEN_WIDTH 128 // OLED display width, in pixels
-#define SCREEN_HEIGHT 32 // OLED display height, in pixels
+#ifdef PAWEL
+#define SCREEN_WIDTH 128    // OLED display width, in pixels
+#define SCREEN_HEIGHT 64    // OLED display height, in pixels
+#define SCREEN_ADDRESS 0x78 ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
+#else
+#define SCREEN_WIDTH 128    // OLED display width, in pixels
+#define SCREEN_HEIGHT 32    // OLED display height, in pixels
+#define SCREEN_ADDRESS 0x3C ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
+#endif
 
 #define OLED_RESET -1                                                     // Reset pin # (or -1 if sharing Arduino reset pin)
-#define SCREEN_ADDRESS 0x3C                                               ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET); // Initialize OLED
 
 #if !defined(CONFIG_BT_ENABLED) || !defined(CONFIG_BLUEDROID_ENABLED)
@@ -77,417 +103,67 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET); // Ini
 BluetoothSerial SerialBT; // Initialize BT
 
 int ENABLE_pin = 4; // ENABLE - direction for uart transmiting (master/SLAVE)
-// #define RXD2 25     // HW UART
-// #define TXD2 27     // HW UART
-#define RXD2 16
-#define TXD2 17
+#define RXD2 16     // HW UART
+#define TXD2 17     // HW UART
 
 // Global variables to communicate between functions
 String btCommand = "";
 String btMessageRecieved = "";
-String btCommandValue = "";
+// Variables from controler
+String currentAnt;
+String currTemp = "0.00";
 
 // touch parameters
 #define Threshold 20 // Greater the value, more the sensitivity para touch wakeup
 #define UP_pin 12
 #define DOWN_pin 14
 int sensitivity;
-int touchLevel = 40;
-// Variables from controler
-String currentAnt;
-String currTemp = "0.00";
+int touchLevel = 60;
+
 // WiFi params
-const char *ssid = "ALFA";                 // Put your WiFI SSID here
-const char *password = "1234567;"; // and your password here
+IPAddress localIP;                     // Set Your IP
+IPAddress localGateway;                // Set your Gateway IP address
+IPAddress localMask(255, 255, 255, 0); // Mask hardcoded - to be changed
 
-// Current time
-unsigned long currentTime = millis();
-// Previous time
-unsigned long previousTime = 0;
-// Define timeout time in milliseconds (example: 2000ms = 2s)
-const long timeoutTime = 2000;
+// Timer variables
+unsigned long currentTime = millis(); //    Current time
+unsigned long previousTime = 0;       //    Previous time
+const long timeoutTime = 2000;        //    Define timeout time in milliseconds (example: 2000ms = 2s)
+const long interval = 10000;          // interval to wait for Wi-Fi connection (milliseconds)
 
-// Website index page template
-const char index_html[] PROGMEM = R"rawliteral(<!DOCTYPE HTML>
-<html>
-<head>
-    <title>Antenna Switch Controller by Sierra Papa DX Group</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css" integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
-    <style>
-        body {
-            font-family: Arial;
-            text-align: center;
-            margin: 0px auto;
-            padding-top: 30px;
-        }
-        html {
-     font-family: Arial;
-     display: inline-block;
-     margin: 0px auto;
-     text-align: center;
-    }
-    h2 { font-size: 3.0rem; }
-    p { font-size: 3.0rem; }
-    .units { font-size: 1.2rem; }
-    .dht-labels{
-      font-size: 1.5rem;
-      vertical-align:middle;
-      padding-bottom: 15px;
-    }
-        .button {
-            padding: 10px 20px;
-            font-size: 24px;
-            text-align: center;
-            outline: none;
-            color: #fff;
-            background-color: #2f4468;
-            border: none;
-            border-radius: 5px;
-            box-shadow: 0 6px #999;
-            cursor: pointer;
-            -webkit-touch-callout: none;
-            -webkit-user-select: none;
-            -khtml-user-select: none;
-            -moz-user-select: none;
-            -ms-user-select: none;
-            user-select: none;
-            -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
-        }
-        .button:hover {
-            background-color: #1f2e45
-        }
-        .button:active {
-            background-color: #1f2e45;
-            box-shadow: 0 4px #666;
-            transform: translateY(2px);
-        }
-        label {
-        display: inline-block;
-            margin-top: 1em;
-            height: 64px;
-        }
-        *:disabled {
-            background-color: dimgrey;
-            color: linen;
-            opacity: 1;
-        }
-        input[type="text"] {
-            font-size: 64px;
-        }
-    </style>
-</head>
-<body>
-    <h1>ESP Switch Controller by EI9SP</h1>
-    <button class="button" onmousedown="toggleCheckbox('up');" ontouchstart="toggleCheckbox('up');" onmouseup="toggleCheckbox('UP');" ontouchend="toggleCheckbox('UP');">&nbsp;UP&nbsp;</button>
-    <br><br>
-      <p>
-    <i class="fas fa-wifi" style="color:#00add6;"></i>
-    <span class="dht-labels">Antenna</span>
-    <span id="antenna">%ANTENNA%</span>
-  </p><p>
-    <i class="fas fa-thermometer-half" style="color:#059e8a;"></i> 
-    <span class="dht-labels">Temperature</span> 
-    <span id="temperature">%TEMPERATURE%</span>
-    <sup class="units">&deg;C</sup>
-  </p><br><br>
-    <button class="button" onmousedown="toggleCheckbox('down');" ontouchstart="toggleCheckbox('down');" onmouseup="toggleCheckbox('DOWN');" ontouchend="toggleCheckbox('DOWN');">DOWN</button>
-    <script>
-        function toggleCheckbox(x) {
-            var xhr = new XMLHttpRequest();
-            xhr.open("GET", "/" + x, true);
-            xhr.send();
-        }
-        setInterval(function ( ) {
-  var xhttp = new XMLHttpRequest();
-  xhttp.onreadystatechange = function() {
-    if (this.readyState == 4 && this.status == 200) {
-      document.getElementById("temperature").innerHTML = this.responseText;
-    }
-  };
-  xhttp.open("GET", "/temperature", true);
-  xhttp.send();
-}, 100 ) ;
+AsyncWebServer server(80); // Initializing WEB Server Object
 
-setInterval(function ( ) {
-  var xhttp = new XMLHttpRequest();
-  xhttp.onreadystatechange = function() {
-    if (this.readyState == 4 && this.status == 200) {
-      document.getElementById("antenna").innerHTML = this.responseText;
-    }
-  };
-  xhttp.open("GET", "/antenna", true);
-  xhttp.send();
-}, 100 ) ;
-</script>
-</body>
-</html>
-)rawliteral";
-String ReturnAntenaToWWW() // Convert current antens too Integer for showing on WWW
-{
-  int webAnt;
-  if (currentAnt == "a1")
-  {
-    webAnt = 1;
-  }
-  else if (currentAnt == "a2")
-  {
-    webAnt = 2;
-  }
-  else if (currentAnt == "a3")
-  {
-    webAnt = 3;
-  }
-  else if (currentAnt == "a4")
-  {
-    webAnt = 4;
-  }
-  else if (currentAnt == "a0")
-  {
-    webAnt = 0;
-  }
-  return String(webAnt);
-}
+// Variables to save values from HTML form
+String ssid;
+String pass;
+String ip;
+String gateway;
+String mask;
+String n1mm;
+String port;
 
-String GetTemperature() // Get temperature from controller - dummy value st the moment  [TBI]
-{
-  return currTemp;
-}
+// Search for parameter in HTTP POST request
+const char *PARAM_INPUT_1 = "ssid";
+const char *PARAM_INPUT_2 = "pass";
+const char *PARAM_INPUT_3 = "ip";
+const char *PARAM_INPUT_4 = "gateway";
+const char *PARAM_INPUT_5 = "mask";
 
-String processor(const String &var) // Processor function forAsync WEB Server
-{
-
-  DEBUG_PRINT(var);
-
-  if (var == "TEMPERATURE")
-  {
-    return GetTemperature();
-  }
-  else if (var == "ANTENNA")
-  {
-    return ReturnAntenaToWWW();
-  }
-  return String();
-}
-
-void notFound(AsyncWebServerRequest *request) // WEB server response function for invalid request
-{
-  request->send(404, "text/plain", "Not found");
-}
-
-AsyncWebServer server(80); // Initializing WEB Server
-
-void PrintCMDOnDisp(String message) // Print custome message on OLED
-{
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setTextColor(SSD1306_WHITE);
-  display.setCursor(0, 15);
-  display.println(message);
-  display.display();
-}
-
-void PrintMSG(String command) // Send command to controller and debuging info to console & OLED - partially dummy [TBI]
-{
-
-  DEBUG_PRINT("Command: " + command);
-  Serial2.println(command);
-  command = "";
-}
-
-void UpdateAntenaOnDisp(int output) // Print actual selected antenna on OLED
-{
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setTextColor(SSD1306_WHITE);
-  display.setCursor(1, 1);
-  display.println(F("Active antena:"));
-  display.setTextSize(2);
-  display.setCursor(40, 15);
-  display.println(String(output));
-  display.display();
-}
-
-void ProcessBT() // Process BT commands
-{
-  if (btCommand == "a0")
-  {
-    PrintMSG(btCommand);
-    UpdateAntenaOnDisp(0);
-    currentAnt = "a0";
-  }
-  if (btCommand == "a1")
-  {
-    PrintMSG(btCommand);
-    UpdateAntenaOnDisp(1);
-    currentAnt = "a1";
-  }
-  if (btCommand == "a2")
-  {
-    PrintMSG(btCommand);
-    UpdateAntenaOnDisp(2);
-    currentAnt = "a2";
-  }
-  if (btCommand == "a3")
-  {
-    PrintMSG(btCommand);
-    UpdateAntenaOnDisp(3);
-    currentAnt = "a3";
-  }
-  if (btCommand == "a4")
-  {
-    PrintMSG(btCommand);
-    UpdateAntenaOnDisp(4);
-    currentAnt = "a4";
-  }
-  if (btCommand == "rs_term_on")
-  {
-    PrintMSG(btCommand);
-    PrintCMDOnDisp("Enable termination");
-  }
-  if (btCommand == "rs_term_off")
-  {
-    PrintMSG(btCommand);
-    PrintCMDOnDisp("Disable termination");
-  }
-  if (btCommand == "reboot")
-  {
-    PrintMSG(btCommand);
-    PrintCMDOnDisp("Rebooting remote unit");
-  }
-  if (btCommand == "load")
-  {
-    PrintMSG(btCommand);
-    PrintCMDOnDisp("Connect unit for F/W update");
-  }
-}
-
-void ConfirmAntenaOnDisp(int output) // Confirm antenna on controller is same on switch
-{
-  display.clearDisplay();
-  display.setTextSize(1);              // Normal 1:1 pixel scale
-  display.setTextColor(SSD1306_WHITE); // Draw white text
-  display.setCursor(1, 1);             // Start at top-left corner
-  display.println(F("Active antena:"));
-  display.setTextSize(2);
-  display.setCursor(40, 15);
-  display.setTextColor(SSD1306_BLACK, SSD1306_WHITE); // reverse collors will indicate bith devices are in sync
-  display.println(String(output));
-  display.setTextColor(SSD1306_WHITE);
-  display.display();
-}
-
-String DirtyManualSwitch(String dir) // Process touch buttons
-{
-  if ((currentAnt == "a0") and (dir == "UP"))
-  {
-    currentAnt = "a1";
-    UpdateAntenaOnDisp(1);
-  }
-  else if ((currentAnt == "a1") and (dir == "UP"))
-  {
-    currentAnt = "a2";
-    UpdateAntenaOnDisp(2);
-  }
-  else if ((currentAnt == "a2") and (dir == "UP"))
-  {
-    currentAnt = "a3";
-    UpdateAntenaOnDisp(3);
-  }
-  else if ((currentAnt == "a3") and (dir == "UP"))
-  {
-    currentAnt = "a4";
-    UpdateAntenaOnDisp(4);
-  }
-  else if ((currentAnt == "a4") and (dir == "UP"))
-  {
-    currentAnt = "a0";
-    UpdateAntenaOnDisp(0);
-  }
-  else if ((currentAnt == "a0") and (dir == "DOWN"))
-  {
-    currentAnt = "a4";
-    UpdateAntenaOnDisp(4);
-  }
-  else if ((currentAnt == "a4") and (dir == "DOWN"))
-  {
-    currentAnt = "a3";
-    UpdateAntenaOnDisp(3);
-  }
-  else if ((currentAnt == "a3") and (dir == "DOWN"))
-  {
-    currentAnt = "a2";
-    UpdateAntenaOnDisp(2);
-  }
-  else if ((currentAnt == "a2") and (dir == "DOWN"))
-  {
-    currentAnt = "a1";
-    UpdateAntenaOnDisp(1);
-  }
-  else if ((currentAnt == "a1") and (dir == "DOWN"))
-  {
-    currentAnt = "a0";
-    UpdateAntenaOnDisp(0);
-  }
-  return currentAnt;
-}
-
-String GetDataFromSwitch() // Get setting from switch
-{
-  String data_recievied;
-  Serial2.println("a?");
-  data_recievied = Serial2.readStringUntil('\n');
-  if ((data_recievied == "a1") or (data_recievied == "a2") or (data_recievied == "a3") or (data_recievied == "a4") or (data_recievied == "a0"))
-  {
-    currentAnt = data_recievied;
-    data_recievied = "";
-  }
-
-  Serial2.println("t");
-  data_recievied = Serial2.readStringUntil('\n');
-  if ((data_recievied.length() > 1) and (data_recievied.length() < 5))
-  {
-    currTemp = data_recievied;
-  }
-}
-
-void SendToSwitch(String command) // Send Command to switch (partial - response implementation pending) [TBI]
-{
-  Serial2.println(command);
-}
-
-void ShowIP() // Show IP on OLED once connected to WiFi
-{
-  display.clearDisplay();
-  display.setTextSize(1);              // Normal 1:1 pixel scale
-  display.setTextColor(SSD1306_WHITE); // Draw white text
-  display.setCursor(5, 5);             // Start at top-left corner
-  display.println(F("WIFI IP:"));
-
-  display.setCursor(0, 25); // Start at top-left corner
-  display.println(WiFi.localIP());
-  display.display();
-  delay(5000);
-}
-
-void InitScreen() // Init screen - just as example, more advanced need more time ;)
-{
-  display.clearDisplay();
-  display.setTextSize(1);              // Normal 1:1 pixel scale
-  display.setTextColor(SSD1306_WHITE); // Draw white text
-  display.setCursor(5, 5);             // Start at top-left corner
-  display.println(F("No to jadyma, "));
-  display.println(F("          Chlopy!"));
-  display.display();
-  delay(2000);
-}
+// File paths to save input values permanently
+const char *ssidPath = "/ssid.txt";
+const char *passPath = "/pass.txt";
+const char *ipPath = "/ip.txt";
+const char *gatewayPath = "/gateway.txt";
+const char *maskPath = "/mask.txt";
+const char *n1mmPath = "/n1mm.txt";
+const char *portPath = "/port.txt";
 
 void setup() // Mandatory Arduino setup
 {
   Serial.begin(9600);
   Serial2.begin(9600, SERIAL_8N1, RXD2, TXD2);
-  SerialBT.begin("ESP32_ANT");
-
+  SerialBT.begin("EI9SP-ANT");
+  initSPIFFS();
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
   if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS))
   {
@@ -495,18 +171,7 @@ void setup() // Mandatory Arduino setup
     for (;;)
       ; // Don't proceed, loop forever
   }
-
-  // Show initial display buffer contents on the screen --
-  // the library initializes this with an Adafruit splash screen.
-  // display.display();
-  // delay(2000); // Pause for 2 seconds
-  // Clear the buffer
   display.clearDisplay();
-  // Draw a single pixel in white
-  display.drawPixel(10, 10, SSD1306_WHITE);
-
-  // Show the display buffer on the screen. You MUST call display() after
-  // drawing commands to make them visible on screen!
   display.display();
   delay(2000);
   InitScreen(); // Draw startup message
@@ -518,54 +183,38 @@ void setup() // Mandatory Arduino setup
   digitalWrite(ENABLE_pin, HIGH);
   currentAnt = "a0";
 
-  WiFi.mode(WIFI_STA); // Optional
-  DEBUG_PRINT("\nConnecting");
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED)
+  // Read configuration from FS
+  ssid = readFile(SPIFFS, ssidPath);
+  pass = readFile(SPIFFS, passPath);
+  ip = readFile(SPIFFS, ipPath);
+  gateway = readFile(SPIFFS, gatewayPath);
+  mask = readFile(SPIFFS, maskPath);
+  n1mm = readFile(SPIFFS, n1mmPath);
+  port = readFile(SPIFFS, portPath);
+  DEBUG_PRINT(ssid);
+  DEBUG_PRINT(pass);
+  DEBUG_PRINT(ip);
+  DEBUG_PRINT(gateway);
+  DEBUG_PRINT(mask);
+  DEBUG_PRINT(n1mm);
+  DEBUG_PRINT(port);
+
+  // start WWW Standard
+  if (initWiFi()) // Check if connection with saved data can be established
   {
-    DEBUG_PRINT('.');
-    delay(1000);
+    StandardServer(); // Sucess - running normal mode
   }
-  DEBUG_PRINT("\nConnected to the WiFi network");
-  Serial.print("Local ESP32 IP: ");
-  Serial.println(WiFi.localIP());
-
-  ShowIP();
-
-  Serial2.println("Starting initialisation...");
-
-  // Send web page to client
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-            { request->send_P(200, "text/html", index_html, processor); });
-
-  // Receive an HTTP GET request
-  server.on("/up", HTTP_GET, [](AsyncWebServerRequest *request)
-            {
-    DirtyManualSwitch("UP");
-    SendToSwitch(currentAnt);
-    request->send(200, "text/plain", "ok"); });
-
-  // Receive an HTTP GET request
-  server.on("/down", HTTP_GET, [](AsyncWebServerRequest *request)
-            {
-    DirtyManualSwitch("DOWN");
-    SendToSwitch(currentAnt);
-    request->send(200, "text/plain", "ok"); });
-
-  server.on("/temperature", HTTP_GET, [](AsyncWebServerRequest *request)
-            { request->send_P(200, "text/plain", GetTemperature().c_str()); });
-  server.on("/antenna", HTTP_GET, [](AsyncWebServerRequest *request)
-            { request->send_P(200, "text/plain", ReturnAntenaToWWW().c_str()); });
-  server.onNotFound(notFound);
-  server.begin();
+  else
+  {
+    SetAccessPointMode(); // Ouch - running AP mode to collect right settings
+  }
 }
 
-void loop() // Mandatory Arduino Main Loop
+void loop() // Arduino Main Loop
 {
-  //  Serial.println("LOOP");
-  //  Serial2.print("TEST\n");
-  // test if BT is available
-  while (SerialBT.available())
+  GetDataFromSwitch();   //get temp and current antenna from switch
+  
+  while (SerialBT.available())   // test if BT is available
   {
     btMessageRecieved = SerialBT.readStringUntil('#');
     btMessageRecieved.toLowerCase(); // take all to lower case
@@ -575,7 +224,8 @@ void loop() // Mandatory Arduino Main Loop
     DEBUG_PRINT("btCommand          " + btCommand);
     ProcessBT(); // Interpret the BT command
   }
-  touchRead(UP_pin); // para evitar falsas lecturas
+
+  touchRead(UP_pin); // Read touch key UP
   if (touchRead(UP_pin) < touchLevel)
   {
     DEBUG_PRINT("touchsensor key up detected ");
@@ -586,7 +236,8 @@ void loop() // Mandatory Arduino Main Loop
     delay(500);
     SendToSwitch(currentAnt);
   }
-  touchRead(DOWN_pin); // para evitar falsas lecturas
+
+  touchRead(DOWN_pin); // Read touch key DOWN
   if (touchRead(DOWN_pin) < touchLevel)
   {
     DEBUG_PRINT("touchsensor key down detected ");
