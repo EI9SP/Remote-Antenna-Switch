@@ -1,0 +1,6 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "RS485_antenna_switch_v1.3-rescue")(type "Legacy")(uri "${KIPRJMOD}/RS485_antenna_switch_v1.3-rescue.lib")(options "")(descr ""))
+  (lib (name "RS485_antenna_switch_v1.1-rescue")(type "KiCad")(uri "${KIPRJMOD}/RS485_antenna_switch_v1.1-rescue.kicad_sym")(options "")(descr ""))
+  (lib (name "RS485_antenna_switch_v1.2-rescue")(type "KiCad")(uri "${KIPRJMOD}/RS485_antenna_switch_v1.2-rescue.kicad_sym")(options "")(descr ""))
+)

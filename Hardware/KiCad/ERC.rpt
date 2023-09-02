@@ -1,0 +1,17 @@
+ERC report (01/09/2023 21:59:13, Encoding UTF8)
+
+***** Sheet /
+[endpoint_off_grid]: Symbol pin or wire end off grid
+    ; Severity: warning
+    @(425.4500 mm, 226.6950 mm): Symbol TBU2 Hidden pin 2 [Unconnected, Line]
+[endpoint_off_grid]: Symbol pin or wire end off grid
+    ; Severity: warning
+    @(425.4500 mm, 213.9950 mm): Symbol TBU1 Hidden pin 2 [Unconnected, Line]
+[endpoint_off_grid]: Symbol pin or wire end off grid
+    ; Severity: warning
+    @(425.4500 mm, 247.0150 mm): Symbol TBU4 Hidden pin 2 [Unconnected, Line]
+[endpoint_off_grid]: Symbol pin or wire end off grid
+    ; Severity: warning
+    @(425.4500 mm, 234.3150 mm): Symbol TBU3 Hidden pin 2 [Unconnected, Line]
+
+ ** ERC messages: 4  Errors 0  Warnings 4
