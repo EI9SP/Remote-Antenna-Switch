@@ -1,0 +1,157 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <title>Antenna Switch Controller by Sierra Papa DX Group</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css"
+        integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
+    <style>
+        body {
+            font-family: Arial;
+            text-align: center;
+            margin: 0px auto;
+        }
+
+        html {
+            font-family: Arial;
+            display: inline-block;
+            margin: 0px auto;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            color: white;
+        }
+
+        h2 {
+            font-size: 3.0rem;
+        }
+
+        p {
+            font-size: 3.0rem;
+        }
+
+        .units {
+            font-size: 1.2rem;
+        }
+
+        .dht-labels {
+            font-size: 1.5rem;
+            vertical-align: middle;
+            padding-bottom: 15px;
+        }
+
+        .topnav {
+            overflow: hidden;
+            background-color: #0A1128;
+        }
+
+        .button {
+            padding: 10px 20px;
+            font-size: 24px;
+            text-align: center;
+            outline: none;
+            color: #fff;
+            background-color: #2f4468;
+            border: none;
+            border-radius: 5px;
+            box-shadow: 0 6px #999;
+            cursor: pointer;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+        }
+
+        .button:hover {
+            background-color: #1f2e45
+        }
+
+        .button:active {
+            background-color: #1f2e45;
+            box-shadow: 0 4px #666;
+            transform: translateY(2px);
+        }
+
+        label {
+            display: inline-block;
+            margin-top: 1em;
+            height: 64px;
+        }
+
+        *:disabled {
+            background-color: dimgrey;
+            color: linen;
+            opacity: 1;
+        }
+
+        input[type="text"] {
+            font-size: 64px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="topnav">
+        <h1>ESP Switch Controller by EI9SP</h1>
+    </div>
+    <p>
+        <button class="button" onmousedown="toggleCheckbox('up');" ontouchstart="toggleCheckbox('up');"
+            onmouseup="toggleCheckbox('UP');" ontouchend="toggleCheckbox('UP');">&nbsp;UP&nbsp;</button>
+        <br><br>
+    <p>
+        <i class="fas fa-wifi" style="color:#00add6;"></i>
+        <span class="dht-labels">Antenna</span>
+        <span id="antenna">%ANTENNA%</span>
+    </p>
+    <p>
+        <i class="fas fa-thermometer-half" style="color:#059e8a;"></i>
+        <span class="dht-labels">Temperature</span>
+        <span id="temperature">%TEMPERATURE%</span>
+        <sup class="units">&deg;C</sup>
+    </p><br><br>
+    <button class="button" onmousedown="toggleCheckbox('down');" ontouchstart="toggleCheckbox('down');"
+        onmouseup="toggleCheckbox('DOWN');" ontouchend="toggleCheckbox('DOWN');">DOWN</button>
+    </p>
+   
+   
+        Copyright &copy 2023 EI9SP <a href="http://www.ei9sp.org"><img src="favicon-32x32.png"></a> Sierra Papa DX Group
+        
+   
+    <script>
+        function toggleCheckbox(x) {
+            var xhr = new XMLHttpRequest();
+            xhr.open("GET", "/" + x, true);
+            xhr.send();
+        }
+        setInterval(function () {
+            var xhttp = new XMLHttpRequest();
+            xhttp.onreadystatechange = function () {
+                if (this.readyState == 4 && this.status == 200) {
+                    document.getElementById("temperature").innerHTML = this.responseText;
+                }
+            };
+            xhttp.open("GET", "/temperature", true);
+            xhttp.send();
+        }, 100);
+
+        setInterval(function () {
+            var xhttp = new XMLHttpRequest();
+            xhttp.onreadystatechange = function () {
+                if (this.readyState == 4 && this.status == 200) {
+                    document.getElementById("antenna").innerHTML = this.responseText;
+                }
+            };
+            xhttp.open("GET", "/antenna", true);
+            xhttp.send();
+        }, 100);
+    </script>
+</body>
+
+</html>

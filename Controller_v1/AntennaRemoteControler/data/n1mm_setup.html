@@ -1,0 +1,139 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <title>Antenna Switch Controller by Sierra Papa DX Group</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <style>
+        html {
+            font-family: Arial, Helvetica, sans-serif;
+            display: inline-block;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            color: rgb(0, 0, 0);
+        }
+
+        p {
+            font-size: 3.0rem;
+        }
+
+        .units {
+            font-size: 1.2rem;
+        }
+
+        .dht-labels {
+            font-size: 1.5rem;
+            vertical-align: middle;
+            padding-bottom: 15px;
+        }
+
+        .name {
+            color: rgb(256, 0, 0);
+        }
+
+        body {
+            font-family: Arial;
+            text-align: center;
+            margin: 0px auto;
+            padding-top: 30px;
+        }
+
+        .content {
+            padding: 5%;
+        }
+
+        input[type=submit] {
+            border: none;
+            color: #FEFCFB;
+            background-color: #034078;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            transition-duration: 0.4s;
+            width: 7%;
+            padding: 12px 20px;
+            margin: 18px;
+            display: inline-block;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        input[type=submit]:hover {
+            background-color: #1282A2;
+        }
+
+        input[type=text],
+        input[type=number],
+        select {
+            font-size: medium;
+            padding: 12px 20px;
+            margin: 18px;
+            display: inline-block;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: content-box;
+        }
+
+        label {
+            font-size: 1.2rem;
+        }
+
+        .value {
+            font-size: 1.2rem;
+            color: #1282A2;
+        }
+
+        .state {
+            font-size: 1.2rem;
+            color: #1282A2;
+        }
+
+        button {
+            border: none;
+            color: #FEFCFB;
+            padding: 15px 32px;
+            text-align: center;
+            font-size: 16px;
+            width: 20px;
+            border-radius: 4px;
+            transition-duration: 0.4s;
+            background-color: #1f2e45
+        }
+
+        .button-on {
+            background-color: #034078;
+        }
+
+        .button-on:hover {
+            background-color: #1282A2;
+        }
+
+        .button-off {
+            background-color: #858585;
+        }
+
+        .button-off:hover {
+            background-color: #252524;
+        }
+    </style>
+    <body>
+    <h1>ESP Switch Controller by EI9SP</h1>
+    &nbsp;
+    <p>To enable <span class="name">N1MM</span> antena sellection please provide/update UDP connection details:</p>
+    </p>
+    <form method='get' action='setting'>
+        <label>IP: </label>
+        <input name='ip' length="15" type="text" width="5" value="192.168.0.1">
+        <label>Port:</label>
+        <input name="port" type="text" lenght="5" width="5" value="12000">
+        <input type='submit'>
+    </form>
+    </body>
+
+</html>
