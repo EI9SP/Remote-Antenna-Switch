@@ -50,9 +50,10 @@ void SendToSwitch(String command) // Send Command to switch
 {
   for (int i = 0; i < command.length(); i++)
   {
-    Serial2.write(command[i]);
+    SerialPort2.write(command[i]);
+    
   }
-  Serial2.write("\r");
+  SerialPort2.write("\r");
 }
 
 double GetTemperature() // Get temperature from controller - dummy value st the moment  [TBI]
@@ -67,9 +68,9 @@ void  GetDataFromSwitch() // Get data from switch
 
   SendToSwitch(getActiveAntena);
   extern int currentAnt;
-  if (Serial2.available())
+  if (SerialPort2.available())
   {
-    data_recievied = Serial2.readStringUntil('\n');
+    data_recievied = SerialPort2.readStringUntil('\n');
     if ((data_recievied == "a1") or (data_recievied == "a2") or (data_recievied == "a3") or (data_recievied == "a4") or (data_recievied == "a0"))
     {
       currentAnt = 11; // data_recievied;
@@ -81,9 +82,9 @@ void  GetDataFromSwitch() // Get data from switch
     }
   }
   SendToSwitch(getSwitchTemp);
-  if (Serial2.available())
+  if (SerialPort2.available())
   {
-    data_recievied = Serial2.readStringUntil('\n');
+    data_recievied = SerialPort2.readStringUntil('\n');
     if ((data_recievied.length() > 1) and (data_recievied.length() < 5))
     {
       double currTemp = 2.3; // data_recievied;

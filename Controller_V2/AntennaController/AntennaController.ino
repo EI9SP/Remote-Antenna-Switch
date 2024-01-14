@@ -10,6 +10,8 @@
 #include <Arduino_GFX_Library.h>
 #include "WiFi.h"
 #include "touch.h"
+#include <HardwareSerial.h>
+
 
 /*******************************************************************************
  * Global variables
@@ -25,6 +27,9 @@
 #define GFX_BL DF_GFX_BL  // default backlight pin, you may replace DF_GFX_BL to actual backlight pin
 #define GFX_BL 44
 #define LV_USE_LOG 0
+//#define MYPORT_TX 17
+//#define MYPORT_RX 18
+
 
 // define filename to store config file
 const String config_filename = "/config.json";
@@ -72,6 +77,7 @@ Arduino_RPi_DPI_RGBPanel *gfx = new Arduino_RPi_DPI_RGBPanel(
 
 /* Display flushing */
 
+HardwareSerial SerialPort2 (2); 
 
 void WiFiLoadScreen(lv_event_t *e) {
   // Your code here
@@ -112,6 +118,8 @@ void ui_event_connectButton(lv_event_t *e) {
 
 void setup() {
   Serial.begin(115200);
+  SerialPort2.begin(115200, SERIAL_8N1, 18, 17);
+  
   // Serial.setDebugOutput(true);
   // while(!Serial);
   Serial.println("Antenna switch by EI9SP");
