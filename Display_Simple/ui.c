@@ -36,7 +36,7 @@ lv_obj_t* ui_btnAntena4;
 lv_obj_t* ui_Label4;
 lv_obj_t* ui_Panel1;
 lv_obj_t* ui_xtxWifi;
-lv_obj_t* ui_Image3;
+lv_obj_t* ui_Image2;
 void ui_event____initial_actions0(lv_event_t* e);
 lv_obj_t* ui____initial_actions0;
 lv_obj_t* ui_txtStatus;

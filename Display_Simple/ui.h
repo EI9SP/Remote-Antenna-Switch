@@ -40,13 +40,18 @@ extern lv_obj_t * ui_btnAntena4;
 extern lv_obj_t * ui_Label4;
 extern lv_obj_t * ui_Panel1;
 extern lv_obj_t * ui_xtxWifi;
-extern lv_obj_t * ui_Image3;
+extern lv_obj_t * ui_Image2;
 void ui_event____initial_actions0(lv_event_t * e);
 extern lv_obj_t * ui____initial_actions0;
 extern lv_obj_t * ui_txtStatus;
 LV_IMG_DECLARE(ui_img_logo_ei9spc_png);    // assets\logo_ei9spc.png
 void my_timer(lv_timer_t* timer);
 
+LV_IMG_DECLARE(ui_img_big_squarer_png);    // assets\Big_squareR.png
+LV_IMG_DECLARE(ui_img_line4_png);    // assets\line4.png
+LV_IMG_DECLARE(ui_img_1861526004);    // assets\button-g2.png
+LV_IMG_DECLARE(ui_img_1861550729);    // assets\button-r2.png
+LV_IMG_DECLARE(ui_img_logo_png);    // assets\logo.png
 
 void ui_init(void);
 
