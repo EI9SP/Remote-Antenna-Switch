@@ -1,7 +1,5 @@
 #include "WiFi.h"
 #include "time.h"
-
-
 /*******************************************************************************
  * LVGL 
  * Dependent libraries:
@@ -103,16 +101,25 @@ void my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data) {
 #define MYPORT_TX 19
 #define MYPORT_RX 20
 HardwareSerial SerialPort2(2);
+#include <SD.h>
 
 /*******************************************************************************
 * global vars
 *******************************************************************************/
 String currentAnt;
 String switchTemp = "0";
-String nameSSID = "YOURSSID";
-String password = "YOUR_PASSWD";
+String nameSSID;  //= "ALFA";
+String password;  //= "Eowin@2!Image01;";
 bool showTime = false;
 static unsigned long last_ms;
+
+/*******************************************************************************
+* SD card 
+*******************************************************************************/
+
+#define KEY_MAX_LENGTH 30    // change it if key is longer
+#define VALUE_MAX_LENGTH 30  // change it if value is longer
+#define FILE_NAME "wifi"
 
 void setup() {
   Wire.end();
@@ -127,6 +134,9 @@ void setup() {
   // disconnect to start again
   WiFi.disconnect();
   delay(100);
+  nameSSID = SD_findString(F("SSID"));
+  password = SD_findString(F("PASS"));
+
 
 #ifdef GFX_PWD
   pinMode(GFX_PWD, OUTPUT);
@@ -178,60 +188,127 @@ void setup() {
     Serial.println("Setup done");
   }
 }
-
 void loop() {
   lv_timer_handler(); /* let the GUI do its work */
   delay(5);
-  /*
-  unsigned long currentMillis = millis();
-  if (currentMillis - last_ms > 3600) {
-    CollectDataFromSwitch();
-    if (currentAnt == "0") {
-      _ui_state_modify(ui_btnAntena1, LV_STATE_CHECKED, _UI_MODIFY_STATE_REMOVE);
-      _ui_state_modify(ui_btnAntena2, LV_STATE_CHECKED, _UI_MODIFY_STATE_REMOVE);
-      _ui_state_modify(ui_btnAntena3, LV_STATE_CHECKED, _UI_MODIFY_STATE_REMOVE);
-      _ui_state_modify(ui_btnAntena4, LV_STATE_CHECKED, _UI_MODIFY_STATE_REMOVE);
-      _ui_state_modify(ui_btnAntena5, LV_STATE_CHECKED, _UI_MODIFY_STATE_ADD);
+}
 
-    } else if (currentAnt == "1") {
-      _ui_state_modify(ui_btnAntena1, LV_STATE_CHECKED, _UI_MODIFY_STATE_ADD);
-      _ui_state_modify(ui_btnAntena2, LV_STATE_CHECKED, _UI_MODIFY_STATE_REMOVE);
-      _ui_state_modify(ui_btnAntena3, LV_STATE_CHECKED, _UI_MODIFY_STATE_REMOVE);
-      _ui_state_modify(ui_btnAntena4, LV_STATE_CHECKED, _UI_MODIFY_STATE_REMOVE);
-      _ui_state_modify(ui_btnAntena5, LV_STATE_CHECKED, _UI_MODIFY_STATE_REMOVE);
 
-    } else if (currentAnt == "2") {
-      _ui_state_modify(ui_btnAntena1, LV_STATE_CHECKED, _UI_MODIFY_STATE_REMOVE);
-      _ui_state_modify(ui_btnAntena2, LV_STATE_CHECKED, _UI_MODIFY_STATE_ADD);
-      _ui_state_modify(ui_btnAntena3, LV_STATE_CHECKED, _UI_MODIFY_STATE_REMOVE);
-      _ui_state_modify(ui_btnAntena4, LV_STATE_CHECKED, _UI_MODIFY_STATE_REMOVE);
-      _ui_state_modify(ui_btnAntena5, LV_STATE_CHECKED, _UI_MODIFY_STATE_REMOVE);
-    } else if (currentAnt == "3") {
-      _ui_state_modify(ui_btnAntena1, LV_STATE_CHECKED, _UI_MODIFY_STATE_REMOVE);
-      _ui_state_modify(ui_btnAntena2, LV_STATE_CHECKED, _UI_MODIFY_STATE_REMOVE);
-      _ui_state_modify(ui_btnAntena3, LV_STATE_CHECKED, _UI_MODIFY_STATE_ADD);
-      _ui_state_modify(ui_btnAntena4, LV_STATE_CHECKED, _UI_MODIFY_STATE_REMOVE);
-      _ui_state_modify(ui_btnAntena5, LV_STATE_CHECKED, _UI_MODIFY_STATE_REMOVE);
-    } else if (currentAnt == "4") {
-      _ui_state_modify(ui_btnAntena1, LV_STATE_CHECKED, _UI_MODIFY_STATE_REMOVE);
-      _ui_state_modify(ui_btnAntena2, LV_STATE_CHECKED, _UI_MODIFY_STATE_REMOVE);
-      _ui_state_modify(ui_btnAntena3, LV_STATE_CHECKED, _UI_MODIFY_STATE_REMOVE);
-      _ui_state_modify(ui_btnAntena4, LV_STATE_CHECKED, _UI_MODIFY_STATE_ADD);
-      _ui_state_modify(ui_btnAntena5, LV_STATE_CHECKED, _UI_MODIFY_STATE_REMOVE);
-    } else {
-      _ui_state_modify(ui_btnAntena1, LV_STATE_CHECKED, _UI_MODIFY_STATE_REMOVE);
-      _ui_state_modify(ui_btnAntena2, LV_STATE_CHECKED, _UI_MODIFY_STATE_REMOVE);
-      _ui_state_modify(ui_btnAntena3, LV_STATE_CHECKED, _UI_MODIFY_STATE_REMOVE);
-      _ui_state_modify(ui_btnAntena4, LV_STATE_CHECKED, _UI_MODIFY_STATE_REMOVE);
-      _ui_state_modify(ui_btnAntena5, LV_STATE_CHECKED, _UI_MODIFY_STATE_REMOVE);
+
+
+
+
+
+bool SD_available(const __FlashStringHelper *key) {
+  char value_string[VALUE_MAX_LENGTH];
+  int value_length = SD_findKey(key, value_string);
+  return value_length > 0;
+}
+
+String SD_findString(const __FlashStringHelper *key) {
+  char value_string[VALUE_MAX_LENGTH];
+  int value_length = SD_findKey(key, value_string);
+  return HELPER_ascii2String(value_string, value_length);
+}
+
+int SD_findKey(const __FlashStringHelper *key, char *value) {
+  File configFile = SD.open(FILE_NAME);
+
+  if (!configFile) {
+    Serial.print(F("SD Card: error on opening file "));
+    Serial.println(FILE_NAME);
+    return -1;
+  }
+
+  char key_string[KEY_MAX_LENGTH];
+  char SD_buffer[KEY_MAX_LENGTH + VALUE_MAX_LENGTH + 1];  // 1 is = character
+  int key_length = 0;
+  int value_length = 0;
+
+  // Flash string to string
+  PGM_P keyPoiter;
+  keyPoiter = reinterpret_cast<PGM_P>(key);
+  byte ch;
+  do {
+    ch = pgm_read_byte(keyPoiter++);
+    if (ch != 0)
+      key_string[key_length++] = ch;
+  } while (ch != 0);
+
+  // check line by line
+  while (configFile.available()) {
+    int buffer_length = configFile.readBytesUntil('\n', SD_buffer, 100);
+    if (SD_buffer[buffer_length - 1] == '\r')
+      buffer_length--;  // trim the \r
+
+    if (buffer_length > (key_length + 1)) {                  // 1 is = character
+      if (memcmp(SD_buffer, key_string, key_length) == 0) {  // equal
+        if (SD_buffer[key_length] == '=') {
+          value_length = buffer_length - key_length - 1;
+          memcpy(value, SD_buffer + key_length + 1, value_length);
+          break;
+        }
+      }
     }
+  }
 
-    last_ms = currentMillis;
-    */
-    /*
-    if (showtime) {
-      configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
-      printLocalTime();
+  configFile.close();  // close the file
+  return value_length;
+}
+
+int HELPER_ascii2Int(char *ascii, int length) {
+  int sign = 1;
+  int number = 0;
+
+  for (int i = 0; i < length; i++) {
+    char c = *(ascii + i);
+    if (i == 0 && c == '-')
+      sign = -1;
+    else {
+      if (c >= '0' && c <= '9')
+        number = number * 10 + (c - '0');
     }
-  }*/
+  }
+
+  return number * sign;
+}
+
+float HELPER_ascii2Float(char *ascii, int length) {
+  int sign = 1;
+  int decimalPlace = 0;
+  float number = 0;
+  float decimal = 0;
+
+  for (int i = 0; i < length; i++) {
+    char c = *(ascii + i);
+    if (i == 0 && c == '-')
+      sign = -1;
+    else {
+      if (c == '.')
+        decimalPlace = 1;
+      else if (c >= '0' && c <= '9') {
+        if (!decimalPlace)
+          number = number * 10 + (c - '0');
+        else {
+          decimal += ((float)(c - '0') / pow(10.0, decimalPlace));
+          decimalPlace++;
+        }
+      }
+    }
+  }
+
+  return (number + decimal) * sign;
+}
+
+String HELPER_ascii2String(char *ascii, int length) {
+  String str;
+  str.reserve(length);
+  str = "";
+
+  for (int i = 0; i < length; i++) {
+    char c = *(ascii + i);
+    str += String(c);
+  }
+
+  return str;
 }

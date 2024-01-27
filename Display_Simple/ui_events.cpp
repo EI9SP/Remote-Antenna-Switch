@@ -27,6 +27,9 @@ extern String nameSSID;
 extern String password;
 extern String currentAnt;
 extern bool showTime;
+
+
+
 ///////////
 
 //Switch reated
@@ -164,7 +167,7 @@ void CollectDataFromSwitch()  // Get data from switch
     _ui_state_modify(ui_btnAntena3, LV_STATE_CHECKED, _UI_MODIFY_STATE_REMOVE);
     _ui_state_modify(ui_btnAntena4, LV_STATE_CHECKED, _UI_MODIFY_STATE_REMOVE);
     _ui_state_modify(ui_btnAntena5, LV_STATE_CHECKED, _UI_MODIFY_STATE_REMOVE);
-  } else { // used to change stte(color) of the button if connection restored. Can be done object orientated way but had no time to change code
+  } else { // used to change stae(color) of the button if connection restored. Can be done object orientated way but had no time to change code
     if (currentAnt == "0") {
       _ui_state_modify(ui_btnAntena1, LV_STATE_CHECKED, _UI_MODIFY_STATE_REMOVE);
       _ui_state_modify(ui_btnAntena2, LV_STATE_CHECKED, _UI_MODIFY_STATE_REMOVE);
